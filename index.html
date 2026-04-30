@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Tic Tac Toe - Multiplayer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Added Socket.IO client library -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        /* Your existing CSS styles remain unchanged */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 2.8rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            background: linear-gradient(to right, #3498db, #2ecc71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: titlePulse 3s infinite;
+        }
+        
+        @keyframes titlePulse {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        h2 {
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 1.2rem;
+        }
+        
+        /* Menu Styles */
+        .menu {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .game-mode {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            width: 250px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .game-mode:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .game-mode:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+        }
+        
+        .game-mode i {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            color: #3498db;
+        }
+        
+        .game-mode h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .game-mode p {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+        }
+        
+        .single-player:after { background: linear-gradient(to right, #2ecc71, #27ae60); }
+        .online-multiplayer:after { background: linear-gradient(to right, #3498db, #2980b9); }
+        .offline-multiplayer:after { background: linear-gradient(to right, #9b59b6, #8e44ad); }
+        .room-multiplayer:after { background: linear-gradient(to right, #f39c12, #d35400); }
+        
+        /* Game Container Styles */
+        .game-container {
+            display: none;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin: 20px 0;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .player-section {
+            flex: 1;
+            min-width: 300px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .player-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .player-x .player-icon {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .player-o .player-icon {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+        
+        .player-icon.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+        
+        .player-name {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .player-status {
+            font-size: 1.1rem;
+            padding: 5px 15px;
+            border-radius: 20px;
+            background: #e0e0e0;
+            transition: all 0.3s ease;
+        }
+        
+        .status-online {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status-offline {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .status-waiting {
+            background: #f39c12;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-room {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .game-section {
+            flex: 2;
+            min-width: 300px;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 12px;
+            margin: 0 auto 25px;
+            max-width: 400px;
+            background: rgba(236, 240, 241, 0.5);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .cell {
+            aspect-ratio: 1/1;
+            background-color: #ffffff;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cell:hover {
+            background-color: #f1f2f6;
+            transform: translateY(-5px);
+        }
+        
+        .cell.x {
+            color: #e74c3c;
+        }
+        
+        .cell.o {
+            color: #2ecc71;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            background: #3498db;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s;
+        }
+        
+        .player-turn {
+            font-size: 1.3rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .player-turn span {
+            font-size: 1.8rem;
+            transition: all 0.3s ease;
+        }
+        
+        .score {
+            font-size: 1.1rem;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 25px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-btn {
+            background: #7f8c8d;
+            color: white;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+        
+        .back-btn:hover {
+            background: #95a5a6;
+            transform: translateY(-3px);
+        }
+        
+        .reset-btn {
+            background: #3498db;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background: #2980b9;
+            transform: translateY(-3px);
+        }
+        
+        .new-game-btn {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .new-game-btn:hover {
+            background: #27ae60;
+            transform: translateY(-3px);
+        }
+        
+        .find-opponent-btn {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .find-opponent-btn:hover {
+            background: #8e44ad;
+            transform: translateY(-3px);
+        }
+        
+        .winning-cell {
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(241, 196, 15, 0.7);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .win-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        
+        .win-message.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .message-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 80%;
+            width: 400px;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .message-content h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .message-content p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            color: #7f8c8d;
+        }
+        
+        .close-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+        }
+        
+        .close-btn:hover {
+            background: #c0392b;
+        }
+        
+        .chat-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .chat-messages {
+            height: 150px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            text-align: left;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: #e0e0e0;
+            animation: slideIn 0.3s;
+        }
+        
+        .message.self {
+            background: #3498db;
+            color: white;
+            text-align: right;
+        }
+        
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+        
+        .chat-input input:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .chat-input button {
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        
+        .online-count {
+            background: #2ecc71;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        
+        /* Room selection styles */
+        .room-selection {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: fadeIn 0.6s;
+        }
+        
+        .room-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            width: 100%;
+        }
+        
+        .room-option {
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 25px;
+            width: 250px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .room-option:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .room-option:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+        }
+        
+        .room-option i {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            color: #3498db;
+        }
+        
+        .room-option h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .room-option p {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        
+        .create-room:after { background: linear-gradient(to right, #2ecc71, #27ae60); }
+        .join-room:after { background: linear-gradient(to right, #3498db, #2980b9); }
+        
+        .room-form {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: fadeIn 0.6s;
+        }
+        
+        .room-form h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .form-group {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+            text-align: left;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+        
+        .form-group input:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .room-id-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        
+        .copy-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .copy-btn:hover {
+            background: #2980b9;
+        }
+        
+        .room-info {
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 50px;
+            margin: 15px 0;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            animation: fadeIn 0.5s;
+        }
+        
+        .room-players {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .player-badge {
+            background: #f8f9fa;
+            border-radius: 50px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .player-badge i {
+            font-size: 1.2rem;
+        }
+        
+        .player-badge.x i {
+            color: #e74c3c;
+        }
+        
+        .player-badge.o i {
+            color: #2ecc71;
+        }
+        
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+            }
+            
+            .player-section {
+                width: 100%;
+            }
+            
+            .menu {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .game-mode {
+                width: 100%;
+                max-width: 350px;
+            }
+            
+            .room-options {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .room-option {
+                width: 100%;
+                max-width: 350px;
+            }
+            
+            h1 {
+                font-size: 2.2rem;
+            }
+            
+            .player-icon {
+                width: 60px;
+                height: 60px;
+                font-size: 2rem;
+            }
+            
+            .cell {
+                font-size: 3.5rem;
+            }
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Tutorial section */
+        .tutorial {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+        
+        .tutorial h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .tutorial-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .tutorial-step {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .tutorial-step i {
+            font-size: 2rem;
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+        
+        .tutorial-step h4 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .tutorial-step p {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-gamepad"></i> Tic Tac Toe</h1>
+        <p class="subtitle">Choose your game mode and start playing!</p>
+        
+        <!-- Main Menu -->
+        <div class="menu" id="main-menu">
+            <div class="game-mode single-player" data-mode="single">
+                <i class="fas fa-robot"></i>
+                <h3>Single Player</h3>
+                <p>Play against our smart AI. Challenge yourself at different difficulty levels.</p>
+            </div>
+            
+            <div class="game-mode online-multiplayer" data-mode="online">
+                <i class="fas fa-globe"></i>
+                <h3>Online Multiplayer</h3>
+                <p>Play against real opponents from around the world. Test your skills!</p>
+            </div>
+            
+            <div class="game-mode offline-multiplayer" data-mode="offline">
+                <i class="fas fa-users"></i>
+                <h3>Offline Multiplayer</h3>
+                <p>Play with a friend on the same device. Pass and play!</p>
+            </div>
+            
+            <div class="game-mode room-multiplayer" data-mode="room">
+                <i class="fas fa-door-open"></i>
+                <h3>Room-Based Multiplayer</h3>
+                <p>Create or join rooms to play with specific opponents.</p>
+            </div>
+        </div>
+        
+        <!-- Room Selection -->
+        <div class="room-selection" id="room-selection">
+            <h2>Room-Based Multiplayer</h2>
+            <p>Play with friends by creating or joining a room</p>
+            
+            <div class="room-options" id="room-options">
+                <div class="room-option create-room" id="create-room-option">
+                    <i class="fas fa-plus-circle"></i>
+                    <h3>Create Room</h3>
+                    <p>Create a new room and invite friends to join</p>
+                </div>
+                
+                <div class="room-option join-room" id="join-room-option">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <h3>Join Room</h3>
+                    <p>Join an existing room with a room ID</p>
+                </div>
+            </div>
+            
+            <!-- Create Room Form -->
+            <div class="room-form" id="create-room-form">
+                <h3>Create New Room</h3>
+                <div class="form-group">
+                    <label for="player-name">Your Name</label>
+                    <input type="text" id="player-name" placeholder="Enter your name" value="Player">
+                </div>
+                
+                <div class="room-id-display">
+                    <i class="fas fa-door-open"></i>
+                    <span id="room-id">ROOM-5A9B</span>
+                    <button class="copy-btn" id="copy-room-id">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+                
+                <div class="room-players" id="room-players">
+                    <div class="player-badge x">
+                        <i class="fas fa-times"></i>
+                        <span id="player-x-name">Player (X)</span>
+                    </div>
+                    <div class="player-badge o">
+                        <i class="far fa-circle"></i>
+                        <span id="player-o-name">Waiting for player...</span>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="back-btn" id="create-room-back">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="new-game-btn" id="start-game-btn">
+                        <i class="fas fa-play"></i> Start Game
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Join Room Form -->
+            <div class="room-form" id="join-room-form">
+                <h3>Join Existing Room</h3>
+                <div class="form-group">
+                    <label for="join-player-name">Your Name</label>
+                    <input type="text" id="join-player-name" placeholder="Enter your name" value="Player">
+                </div>
+                
+                <div class="form-group">
+                    <label for="room-id-input">Room ID</label>
+                    <input type="text" id="room-id-input" placeholder="Enter room ID">
+                </div>
+                
+                <div class="controls">
+                    <button class="back-btn" id="join-room-back">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="new-game-btn" id="join-room-btn">
+                        <i class="fas fa-sign-in-alt"></i> Join Room
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Container (initially hidden) -->
+        <div class="game-container" id="game-container">
+            <button class="back-btn" id="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Menu
+            </button>
+            
+            <div class="room-info" id="room-info">
+                <i class="fas fa-door-open"></i>
+                <span>Room: <span id="current-room-id">ROOM-5A9B</span></span>
+            </div>
+            
+            <div class="player-section">
+                <div class="player-info player-x">
+                    <div class="player-icon" id="player-x-icon">
+                        <i class="fas fa-times"></i>
+                    </div>
+                    <div class="player-name">Player X</div>
+                    <div class="player-status status-room">You</div>
+                </div>
+                
+                <div class="player-info player-o">
+                    <div class="player-icon" id="player-o-icon">
+                        <i class="far fa-circle"></i>
+                    </div>
+                    <div class="player-name" id="opponent-name">Player O</div>
+                    <div class="player-status" id="opponent-status">Room Player</div>
+                </div>
+                
+                <div class="controls" id="mode-controls">
+                    <button class="find-opponent-btn" id="find-opponent-btn">
+                        <i class="fas fa-search"></i> Find Opponent
+                    </button>
+                </div>
+            </div>
+            
+            <div class="game-section">
+                <div class="game-info">
+                    <div class="player-turn">
+                        Current player: <span id="current-player">X</span>
+                    </div>
+                    <div class="score">
+                        Wins: <span id="score-x">0</span> | 
+                        Losses: <span id="score-o">0</span> | 
+                        Draws: <span id="score-draw">0</span>
+                    </div>
+                </div>
+                
+                <div class="game-board" id="game-board">
+                    <div class="cell" data-index="0"></div>
+                    <div class="cell" data-index="1"></div>
+                    <div class="cell" data-index="2"></div>
+                    <div class="cell" data-index="3"></div>
+                    <div class="cell" data-index="4"></div>
+                    <div class="cell" data-index="5"></div>
+                    <div class="cell" data-index="6"></div>
+                    <div class="cell" data-index="7"></div>
+                    <div class="cell" data-index="8"></div>
+                </div>
+                
+                <div class="controls">
+                    <button class="reset-btn" id="reset-btn">
+                        <i class="fas fa-sync-alt"></i> Reset Board
+                    </button>
+                    <button class="new-game-btn" id="new-game-btn">
+                        <i class="fas fa-plus-circle"></i> New Game
+                    </button>
+                </div>
+                
+                <div class="chat-container" id="chat-container">
+                    <h3><i class="fas fa-comments"></i> Game Chat</h3>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message">Welcome to the game! Good luck!</div>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chat-input" placeholder="Type your message...">
+                        <button id="send-message"><i class="fas fa-paper-plane"></i> Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="win-message" id="win-message">
+            <div class="message-content">
+                <h2 id="message-title">Winner!</h2>
+                <p id="message-text">Player X wins!</p>
+                <button class="close-btn" id="close-btn">Continue</button>
+            </div>
+        </div>
+        
+        <!-- Tutorial Section -->
+        <div class="tutorial" id="tutorial">
+            <h3><i class="fas fa-graduation-cap"></i> How to Play</h3>
+            <div class="tutorial-content">
+                <div class="tutorial-step">
+                    <i class="fas fa-object-group"></i>
+                    <h4>Game Board</h4>
+                    <p>The game is played on a 3x3 grid. Players take turns placing their mark (X or O) in empty squares.</p>
+                </div>
+                <div class="tutorial-step">
+                    <i class="fas fa-trophy"></i>
+                    <h4>Win Condition</h4>
+                    <p>The first player to get 3 of their marks in a row (horizontally, vertically, or diagonally) wins the game.</p>
+                </div>
+                <div class="tutorial-step">
+                    <i class="fas fa-handshake"></i>
+                    <h4>Draw Condition</h4>
+                    <p>If all 9 squares are filled and no player has 3 in a row, the game ends in a draw.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize socket connection
+            const socketUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? 'http://localhost:3001' 
+                : 'https://tictactoegame-nrpf.onrender.com';
+            const socket = io(socketUrl);
+
+            
+            // Game state
+            const state = {
+                board: Array(9).fill(''),
+                currentPlayer: 'X',
+                gameActive: true,
+                playerRole: 'X',
+                gameMode: null,
+                opponentConnected: false,
+                scores: { wins: 0, losses: 0, draws: 0 },
+                winningCombinations: [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                    [0, 4, 8], [2, 4, 6]             // diagonals
+                ],
+                roomId: '',
+                playerName: 'Player',
+                opponentName: 'Opponent',
+                socketId: null
+            };
+            
+            // DOM elements
+            const mainMenu = document.getElementById('main-menu');
+            const roomSelection = document.getElementById('room-selection');
+            const roomOptions = document.getElementById('room-options');
+            const createRoomOption = document.getElementById('create-room-option');
+            const joinRoomOption = document.getElementById('join-room-option');
+            const createRoomForm = document.getElementById('create-room-form');
+            const joinRoomForm = document.getElementById('join-room-form');
+            const gameContainer = document.getElementById('game-container');
+            const backBtn = document.getElementById('back-btn');
+            const createRoomBackBtn = document.getElementById('create-room-back');
+            const joinRoomBackBtn = document.getElementById('join-room-back');
+            const startGameBtn = document.getElementById('start-game-btn');
+            const joinRoomBtn = document.getElementById('join-room-btn');
+            const copyRoomIdBtn = document.getElementById('copy-room-id');
+            const roomIdDisplay = document.getElementById('room-id');
+            const currentRoomIdDisplay = document.getElementById('current-room-id');
+            const playerNameInput = document.getElementById('player-name');
+            const joinPlayerNameInput = document.getElementById('join-player-name');
+            const roomIdInput = document.getElementById('room-id-input');
+            const playerXName = document.getElementById('player-x-name');
+            const playerOName = document.getElementById('player-o-name');
+            const roomInfo = document.getElementById('room-info');
+            const playerXIcon = document.getElementById('player-x-icon');
+            const playerOIcon = document.getElementById('player-o-icon');
+            
+            const cells = document.querySelectorAll('.cell');
+            const currentPlayerElement = document.getElementById('current-player');
+            const scoreXElement = document.getElementById('score-x');
+            const scoreOElement = document.getElementById('score-o');
+            const scoreDrawElement = document.getElementById('score-draw');
+            const resetButton = document.getElementById('reset-btn');
+            const newGameButton = document.getElementById('new-game-btn');
+            const findOpponentBtn = document.getElementById('find-opponent-btn');
+            const winMessage = document.getElementById('win-message');
+            const messageTitle = document.getElementById('message-title');
+            const messageText = document.getElementById('message-text');
+            const closeButton = document.getElementById('close-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInput = document.getElementById('chat-input');
+            const sendMessageBtn = document.getElementById('send-message');
+            const opponentStatus = document.getElementById('opponent-status');
+            const opponentName = document.getElementById('opponent-name');
+            const chatContainer = document.getElementById('chat-container');
+            const modeControls = document.getElementById('mode-controls');
+            const tutorial = document.getElementById('tutorial');
+            
+            // Socket event handlers
+            socket.on('connect', () => {
+                state.socketId = socket.id;
+                console.log('Connected to server with ID:', state.socketId);
+            });
+            
+            socket.on('roomCreated', (roomId) => {
+                console.log('Room created:', roomId);
+                state.roomId = roomId;
+                roomIdDisplay.textContent = roomId;
+                currentRoomIdDisplay.textContent = roomId;
+                
+                // Update player badge
+                playerXName.textContent = state.playerName + ' (X)';
+            });
+            
+            socket.on('playerJoined', (players) => {
+                console.log('Player joined:', players);
+                // Update opponent information
+                const otherPlayers = players.filter(p => p.id !== state.socketId);
+                if (otherPlayers.length > 0) {
+                    state.opponentName = otherPlayers[0].name;
+                    opponentName.textContent = state.opponentName;
+                    playerOName.textContent = state.opponentName + ' (O)';
+                    state.opponentConnected = true;
+                    
+                    // Add chat message
+                    addChatMessage(state.opponentName + ' has joined the room', false);
+                    
+                    // If both players are present, start the game
+                    if (players.length === 2) {
+                        initGame();
+                    }
+                }
+            });
+            
+            socket.on('roomState', (roomData) => {
+                console.log('Room state received:', roomData);
+                // Update game state with room data
+                state.board = roomData.board;
+                state.currentPlayer = roomData.currentPlayer;
+                state.gameActive = roomData.gameActive;
+                
+                // Update UI
+                updateBoardUI();
+                highlightCurrentPlayer();
+                
+                // Update scores if available
+                if (roomData.scores) {
+                    scoreXElement.textContent = roomData.scores.winsX;
+                    scoreOElement.textContent = roomData.scores.winsO;
+                    scoreDrawElement.textContent = roomData.scores.draws;
+                }
+            });
+            
+            socket.on('moveMade', (moveData) => {
+                console.log('Move made:', moveData);
+                const { cellIndex, player } = moveData;
+                
+                // Update board state
+                state.board[cellIndex] = player;
+                
+                // Update UI
+                cells[cellIndex].textContent = player;
+                cells[cellIndex].classList.add(player.toLowerCase());
+                
+                // Highlight winning cells if any
+                if (moveData.winningCells) {
+                    moveData.winningCells.forEach(index => {
+                        cells[index].classList.add('winning-cell');
+                    });
+                }
+                
+                // Add chat message for opponent's move
+                if (player !== state.playerRole) {
+                    addChatMessage('Opponent made a move', false);
+                }
+            });
+            
+            socket.on('turnChanged', (currentPlayer) => {
+                console.log('Turn changed to:', currentPlayer);
+                state.currentPlayer = currentPlayer;
+                highlightCurrentPlayer();
+            });
+            
+            socket.on('gameWon', (winData) => {
+                console.log('Game won:', winData);
+                state.gameActive = false;
+                
+                // Update win message
+                if (winData.winner === state.playerRole) {
+                    messageTitle.textContent = 'You Win!';
+                    messageText.textContent = 'Congratulations! You won the game!';
+                    state.scores.wins++;
+                } else {
+                    messageTitle.textContent = 'You Lose!';
+                    messageText.textContent = 'Better luck next time!';
+                    state.scores.losses++;
+                }
+                
+                // Update score display
+                updateScoreDisplay();
+                
+                // Highlight winning cells
+                winData.winningCells.forEach(index => {
+                    cells[index].classList.add('winning-cell');
+                });
+                
+                // Show win message
+                winMessage.classList.add('show');
+            });
+            
+            socket.on('gameDraw', (drawData) => {
+                console.log('Game draw:', drawData);
+                state.gameActive = false;
+                state.scores.draws++;
+                updateScoreDisplay();
+                
+                // Show draw message
+                messageTitle.textContent = 'Draw!';
+                messageText.textContent = 'The game ended in a draw!';
+                winMessage.classList.add('show');
+            });
+            
+            socket.on('messageReceived', (messageData) => {
+                console.log('Message received:', messageData);
+                // Add chat message to UI
+                const isSelf = messageData.playerId === state.socketId;
+                addChatMessage(`${messageData.playerName}: ${messageData.message}`, isSelf);
+            });
+            
+            socket.on('gameReset', (gameData) => {
+                console.log('Game reset:', gameData);
+                // Reset game state
+                state.board = gameData.board;
+                state.currentPlayer = gameData.currentPlayer;
+                state.gameActive = true;
+                
+                // Reset board UI
+                cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('x', 'o', 'winning-cell');
+                });
+                
+                // Highlight current player
+                highlightCurrentPlayer();
+                
+                // Hide win message
+                winMessage.classList.remove('show');
+            });
+            
+            socket.on('playerLeft', (playerId) => {
+                console.log('Player left:', playerId);
+                state.opponentConnected = false;
+                opponentStatus.textContent = 'Disconnected';
+                opponentStatus.className = 'player-status status-offline';
+                
+                // Add chat message
+                addChatMessage('Opponent has left the game', false);
+            });
+            
+            socket.on('roomError', (error) => {
+                console.log('Room error:', error);
+                alert(`Room Error: ${error}`);
+            });
+            
+            // Generate random room ID
+            function generateRoomId() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let result = '';
+                for (let i = 0; i < 4; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            }
+            
+            // Highlight current player
+            function highlightCurrentPlayer() {
+                if (state.currentPlayer === 'X') {
+                    playerXIcon.classList.add('active');
+                    playerOIcon.classList.remove('active');
+                } else {
+                    playerOIcon.classList.add('active');
+                    playerXIcon.classList.remove('active');
+                }
+                
+                currentPlayerElement.textContent = state.currentPlayer;
+                currentPlayerElement.style.color = state.currentPlayer === 'X' ? '#e74c3c' : '#2ecc71';
+            }
+            
+            // Update board UI based on state
+            function updateBoardUI() {
+                state.board.forEach((value, index) => {
+                    if (value) {
+                        cells[index].textContent = value;
+                        cells[index].classList.add(value.toLowerCase());
+                    } else {
+                        cells[index].textContent = '';
+                        cells[index].classList.remove('x', 'o');
+                    }
+                    
+                    // Remove winning highlight
+                    cells[index].classList.remove('winning-cell');
+                });
+            }
+            
+            // Game mode selection
+            document.querySelectorAll('.game-mode').forEach(mode => {
+                mode.addEventListener('click', () => {
+                    state.gameMode = mode.dataset.mode;
+                    
+                    // For room-based mode, show room selection
+                    if (state.gameMode === 'room') {
+                        mainMenu.style.display = 'none';
+                        roomSelection.style.display = 'flex';
+                        roomOptions.style.display = 'flex';
+                        createRoomForm.style.display = 'none';
+                        joinRoomForm.style.display = 'none';
+                        tutorial.style.display = 'none';
+                    } else {
+                        // For other modes, show game directly
+                        mainMenu.style.display = 'none';
+                        gameContainer.style.display = 'flex';
+                        tutorial.style.display = 'block';
+                        
+                        // Hide room info for non-room modes
+                        roomInfo.style.display = 'none';
+                        
+                        // Set up based on game mode
+                        switch(state.gameMode) {
+                            case 'single':
+                                opponentName.textContent = 'Computer';
+                                opponentStatus.textContent = 'AI Level: Medium';
+                                opponentStatus.className = 'player-status status-offline';
+                                chatContainer.style.display = 'none';
+                                modeControls.style.display = 'none';
+                                initGame();
+                                break;
+                            case 'online':
+                                opponentName.textContent = 'Waiting...';
+                                opponentStatus.textContent = 'Searching';
+                                opponentStatus.className = 'player-status status-waiting';
+                                chatContainer.style.display = 'block';
+                                modeControls.style.display = 'flex';
+                                addChatMessage('Searching for an opponent...', false);
+                                break;
+                            case 'offline':
+                                opponentName.textContent = 'Player O';
+                                opponentStatus.textContent = 'Local Player';
+                                opponentStatus.className = 'player-status status-online';
+                                chatContainer.style.display = 'none';
+                                modeControls.style.display = 'none';
+                                initGame();
+                                break;
+                        }
+                    }
+                });
+            });
+            
+            // Create room option
+            createRoomOption.addEventListener('click', () => {
+                roomOptions.style.display = 'none';
+                createRoomForm.style.display = 'flex';
+                
+                // Generate room ID
+                state.roomId = generateRoomId();
+                roomIdDisplay.textContent = state.roomId;
+                
+                // Set player name
+                state.playerName = playerNameInput.value || 'Player';
+                
+                // Emit create room event
+                socket.emit('createRoom', state.playerName);
+                
+                // Show room info
+                roomInfo.style.display = 'flex';
+                currentRoomIdDisplay.textContent = state.roomId;
+            });
+            
+            // Join room option
+            joinRoomOption.addEventListener('click', () => {
+                roomOptions.style.display = 'none';
+                joinRoomForm.style.display = 'flex';
+            });
+            
+            // Back to room selection
+            createRoomBackBtn.addEventListener('click', () => {
+                createRoomForm.style.display = 'none';
+                roomOptions.style.display = 'flex';
+            });
+            
+            joinRoomBackBtn.addEventListener('click', () => {
+                joinRoomForm.style.display = 'none';
+                roomOptions.style.display = 'flex';
+            });
+            
+            // Start game (from create room)
+            startGameBtn.addEventListener('click', () => {
+                state.playerName = playerNameInput.value || 'Player';
+                
+                createRoomForm.style.display = 'none';
+                roomSelection.style.display = 'none';
+                gameContainer.style.display = 'flex';
+                tutorial.style.display = 'block';
+                
+                // Set up for room-based mode
+                opponentName.textContent = 'Waiting...';
+                opponentStatus.textContent = 'Connecting...';
+                opponentStatus.className = 'player-status status-waiting';
+                chatContainer.style.display = 'block';
+                modeControls.style.display = 'none';
+                
+                // Add welcome message
+                addChatMessage('Waiting for opponent to join...', false);
+            });
+            
+            // Join room
+            joinRoomBtn.addEventListener('click', () => {
+                const roomId = roomIdInput.value.trim().toUpperCase();
+                state.playerName = joinPlayerNameInput.value || 'Player';
+                
+                if (!roomId) {
+                    alert('Please enter a room ID');
+                    return;
+                }
+                
+                state.roomId = roomId;
+                
+                // Emit join room event
+                socket.emit('joinRoom', { roomId, playerName: state.playerName });
+                
+                // Show room info
+                roomInfo.style.display = 'flex';
+                currentRoomIdDisplay.textContent = state.roomId;
+                
+                joinRoomForm.style.display = 'none';
+                roomSelection.style.display = 'none';
+                gameContainer.style.display = 'flex';
+                tutorial.style.display = 'block';
+                
+                // Set up for room-based mode
+                opponentName.textContent = 'Connecting...';
+                opponentStatus.textContent = 'Room Player';
+                opponentStatus.className = 'player-status status-room';
+                chatContainer.style.display = 'block';
+                modeControls.style.display = 'none';
+                
+                // Add welcome message
+                addChatMessage(`Joining room: ${roomId}...`, false);
+            });
+            
+            // Copy room ID to clipboard
+            copyRoomIdBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(state.roomId);
+                copyRoomIdBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                setTimeout(() => {
+                    copyRoomIdBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                }, 2000);
+            });
+            
+            // Back to menu
+            backBtn.addEventListener('click', () => {
+                gameContainer.style.display = 'none';
+                roomInfo.style.display = 'none';
+                mainMenu.style.display = 'flex';
+                tutorial.style.display = 'block';
+                
+                // Leave room if in room mode
+                if (state.gameMode === 'room' && state.roomId) {
+                    socket.emit('leaveRoom', state.roomId);
+                    state.roomId = '';
+                    state.opponentConnected = false;
+                }
+            });
+            
+            
+// 🧩 Mini Story Mode + 🧠 AI Trash Talk
+const aiPersonalities = [
+  {
+    name: "Overbrain-9000",
+    quotes: [
+      "Is that the best you got, human?",
+      "Another foolish move. Typical.",
+      "I calculated 42 million possibilities... you chose the worst one."
+    ]
+  },
+  {
+    name: "SassyTron",
+    quotes: [
+      "Oh no you didn't just try that! 😏",
+      "You're basically playing against a toaster... and still losing!",
+      "My circuits are laughing at you right now."
+    ]
+  },
+  {
+    name: "Chillbot",
+    quotes: [
+      "Hey no pressure, just crushing you gently. 😎",
+      "I vibe... I win. You panic... you lose.",
+      "Tic... Tac... Too late."
+    ]
+  }
+];
+let currentAI = aiPersonalities[Math.floor(Math.random() * aiPersonalities.length)];
+
+
+// Initialize game
+            
+function initGame() {
+    state.board.fill('');
+    state.gameActive = true;
+
+    if(state.gameMode === 'offline') {
+        state.playerRole = 'X';
+        state.currentPlayer = 'X';
+    } else if(state.gameMode === 'single') {
+        currentAI = aiPersonalities[Math.floor(Math.random() * aiPersonalities.length)];
+        addChatMessage(`${currentAI.name}: Initializing... You are my next opponent.`, false);
+        state.playerRole = 'X';
+        state.currentPlayer = 'X';
+    } else if(state.gameMode === 'online' || state.gameMode === 'room') {
+        state.playerRole = 'X';
+        state.currentPlayer = 'X';
+    }
+
+    cells.forEach(cell => {
+        cell.textContent = '';
+        cell.classList.remove('x', 'o', 'winning-cell');
+    });
+
+    highlightCurrentPlayer();
+
+                
+                // Hide win message
+                winMessage.classList.remove('show');
+                
+                if(state.gameMode === 'single' && state.currentPlayer === 'O') {
+                    makeAIMove();
+                }
+            }
+            
+            // Find opponent for online mode
+            findOpponentBtn.addEventListener('click', findOpponent);
+            
+            function findOpponent() {
+                findOpponentBtn.disabled = true;
+                findOpponentBtn.innerHTML = '<span class="spinner"></span> Searching...';
+                
+                // Simulate search delay
+                setTimeout(() => {
+                    opponentConnected();
+                }, 2000);
+            }
+            
+            function opponentConnected() {
+                state.opponentConnected = true;
+                state.playerRole = 'X';
+                state.currentPlayer = 'X';
+                opponentName.textContent = 'Player O (Online)';
+                opponentStatus.textContent = 'Online';
+                opponentStatus.className = 'player-status status-online';
+                
+                findOpponentBtn.innerHTML = '<i class="fas fa-user-check"></i> Opponent Found';
+                findOpponentBtn.style.background = '#2ecc71';
+                
+                // Add chat message
+                addChatMessage('Opponent has joined the game', false);
+                addChatMessage('Hello! Ready to play?', true);
+                
+                initGame();
+            }
+            
+            // Handle cell click
+            function handleCellClick(e) {
+                if ((state.gameMode === 'online' || state.gameMode === 'room') && !state.opponentConnected) {
+                    addChatMessage('Please wait for opponent to join!', false);
+                    return;
+                }
+                
+                const cell = e.target;
+                const index = parseInt(cell.getAttribute('data-index'));
+                
+                // Check if cell is already taken or game is inactive
+                if (state.board[index] !== '' || !state.gameActive) {
+                    return;
+                }
+                
+                // In offline mode, always allow the current player to move
+                if (state.gameMode === 'offline') {
+                    state.board[index] = state.currentPlayer;
+                    cell.textContent = state.currentPlayer;
+                    cell.classList.add(state.currentPlayer.toLowerCase());
+                    
+                    // Check for win or draw
+                    if (checkWin()) {
+                        handleWin();
+                    } else if (checkDraw()) {
+                        handleDraw();
+                    } else {
+                        // Switch player
+                        state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
+                        highlightCurrentPlayer();
+                    }
+                    return;
+                }
+                
+                // For room-based multiplayer
+                if (state.gameMode === 'room') {
+                    // Only allow moves if it's the player's turn
+                    if (state.currentPlayer !== state.playerRole) {
+                        addChatMessage("It's not your turn!", false);
+                        return;
+                    }
+                    
+                    // Emit move to server
+                    socket.emit('makeMove', { 
+                        roomId: state.roomId, 
+                        cellIndex: index 
+                    });
+                    
+                    return;
+                }
+                
+                // For single and online, check if it's the player's turn
+                if (state.currentPlayer !== state.playerRole) {
+                    if (state.gameMode === 'online') {
+                        addChatMessage("It's not your turn!", false);
+                    }
+                    return;
+                }
+                
+                // Update game state
+                state.board[index] = state.playerRole;
+                cell.textContent = state.playerRole;
+                cell.classList.add(state.playerRole.toLowerCase());
+                
+                // Check for win or draw
+                if (checkWin()) {
+                    handleWin();
+                } else if (checkDraw()) {
+                    handleDraw();
+                } else {
+                    // Switch player
+                    state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
+                    highlightCurrentPlayer();
+                    
+                    // For single player, make AI move
+                    if (state.gameMode === 'single' && state.currentPlayer !== state.playerRole) {
+                        setTimeout(() => {
+                            makeAIMove();
+                        }, 600);
+                    }
+                    
+                    // For online, simulate opponent move
+                    if (state.gameMode === 'online' && state.currentPlayer !== state.playerRole) {
+                        setTimeout(() => {
+                            makeOnlineMove();
+                        }, 1000);
+                    }
+                }
+            }
+            
+            // Simple AI for single player
+            
+function makeAIMove() {
+    if (!state.gameActive) return;
+
+    const bestMove = minimax(state.board, 'O');
+    placeAI(bestMove.index);
+}
+
+function minimax(board, player) {
+    const huPlayer = 'X';
+    const aiPlayer = 'O';
+
+    const available = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+
+    if (checkWinBoard(board, huPlayer)) return { score: -10 };
+    if (checkWinBoard(board, aiPlayer)) return { score: 10 };
+    if (available.length === 0) return { score: 0 };
+
+    const moves = [];
+
+    for (let i = 0; i < available.length; i++) {
+        const move = {};
+        move.index = available[i];
+        board[available[i]] = player;
+
+        const result = minimax(board, player === aiPlayer ? huPlayer : aiPlayer);
+        move.score = result.score;
+
+        board[available[i]] = '';
+        moves.push(move);
+    }
+
+    let bestMove;
+    if (player === aiPlayer) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < moves.length; i++) {
+            if (moves[i].score > bestScore) {
+                bestScore = moves[i].score;
+                bestMove = moves[i];
+            }
+        }
+    } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < moves.length; i++) {
+            if (moves[i].score < bestScore) {
+                bestScore = moves[i].score;
+                bestMove = moves[i];
+            }
+        }
+    }
+
+    return bestMove;
+}
+
+function checkWinBoard(board, player) {
+    return state.winningCombinations.some(([a, b, c]) =>
+        board[a] === player && board[b] === player && board[c] === player
+    );
+}
+
+
+function placeAI(index) {
+    state.board[index] = 'O';
+    cells[index].textContent = 'O';
+    cells[index].classList.add('o');
+
+    const quote = currentAI.quotes[Math.floor(Math.random() * currentAI.quotes.length)];
+    addChatMessage(`${currentAI.name}: ${quote}`, false);
+
+    if (checkWin()) {
+        handleWin();
+    } else if (checkDraw()) {
+        handleDraw();
+    } else {
+        state.currentPlayer = 'X';
+        highlightCurrentPlayer();
+    }
+}
+ else if (checkDraw()) {
+        handleDraw();
+    } else {
+        state.currentPlayer = 'X';
+        highlightCurrentPlayer();
+    }
+}
+
+
+function makeOnlineMove() {
+                if (!state.gameActive) return;
+                
+                // Find empty cells
+                const emptyCells = [];
+                state.board.forEach((cell, index) => {
+                    if (cell === '') {
+                        emptyCells.push(index);
+                    }
+                });
+                
+                // Select random empty cell
+                if (emptyCells.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * emptyCells.length);
+                    const cellIndex = emptyCells[randomIndex];
+                    
+                    // Add delay to simulate network
+                    setTimeout(() => {
+                        state.board[cellIndex] = 'O';
+                        cells[cellIndex].textContent = 'O';
+                        cells[cellIndex].classList.add('o');
+                        
+                        // Add chat message
+                        addChatMessage('Your turn!', false);
+                        
+                        // Check for win or draw after move
+                        if (checkWin()) {
+                            handleWin();
+                        } else if (checkDraw()) {
+                            handleDraw();
+                        } else {
+                            // Switch back to player
+                            state.currentPlayer = 'X';
+                            highlightCurrentPlayer();
+                        }
+                    }, 800);
+                }
+            }
+            
+            // Check for win
+            function checkWin() {
+                return state.winningCombinations.some(combination => {
+                    const [a, b, c] = combination;
+                    return state.board[a] !== '' && 
+                           state.board[a] === state.board[b] && 
+                           state.board[a] === state.board[c];
+                });
+            }
+            
+            // Handle win
+            function handleWin() {
+                state.gameActive = false;
+                
+                if (state.currentPlayer === state.playerRole) {
+                    state.scores.wins++;
+                    messageTitle.textContent = 'You Win!';
+                    messageText.textContent = 'Congratulations! You won the game!';
+                } else {
+                    state.scores.losses++;
+                    messageTitle.textContent = 'You Lose!';
+                    messageText.textContent = 'Better luck next time!';
+                }
+                
+                updateScoreDisplay();
+                
+                // Highlight winning cells
+                const winningCombination = state.winningCombinations.find(combination => {
+                    const [a, b, c] = combination;
+                    return state.board[a] !== '' && 
+                           state.board[a] === state.board[b] && 
+                           state.board[a] === state.board[c];
+                });
+                
+                winningCombination.forEach(index => {
+                    cells[index].classList.add('winning-cell');
+                });
+                
+                // Show win message
+                winMessage.classList.add('show');
+            }
+            
+            // Check for draw
+            function checkDraw() {
+                return state.board.every(cell => cell !== '');
+            }
+            
+            // Handle draw
+            function handleDraw() {
+                state.gameActive = false;
+                state.scores.draws++;
+                updateScoreDisplay();
+                
+                // Show draw message
+                messageTitle.textContent = 'Draw!';
+                messageText.textContent = 'The game ended in a draw!';
+                winMessage.classList.add('show');
+            }
+            
+            // Update score display
+            function updateScoreDisplay() {
+                scoreXElement.textContent = state.scores.wins;
+                scoreOElement.textContent = state.scores.losses;
+                scoreDrawElement.textContent = state.scores.draws;
+            }
+            
+            // Reset scores
+            function resetScores() {
+                state.scores = { wins: 0, losses: 0, draws: 0 };
+                updateScoreDisplay();
+            }
+            
+            // Add chat message
+            function addChatMessage(message, isSelf) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                if (isSelf) {
+                    messageElement.classList.add('self');
+                    messageElement.textContent = `You: ${message}`;
+                } else {
+                    messageElement.textContent = message;
+                }
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Event listeners
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+            
+            resetButton.addEventListener('click', () => {
+                if (state.gameMode === 'room') {
+                    socket.emit('resetGame', state.roomId);
+                } else {
+                    initGame();
+                }
+            });
+            
+            newGameButton.addEventListener('click', () => {
+                if (state.gameMode === 'room') {
+                    socket.emit('resetGame', state.roomId);
+                } else if ((state.gameMode === 'online' || state.gameMode === 'room') && !state.opponentConnected) {
+                    addChatMessage('Please wait for opponent!', false);
+                    return;
+                } else {
+                    initGame();
+                }
+            });
+            
+            closeButton.addEventListener('click', () => {
+                winMessage.classList.remove('show');
+                if (state.gameMode === 'single' && state.currentPlayer === 'O') {
+                    setTimeout(() => {
+                        makeAIMove();
+                    }, 600);
+                }
+            });
+            
+            // Chat functionality
+            sendMessageBtn.addEventListener('click', () => {
+                if (chatInput.value.trim() !== '') {
+                    if (state.gameMode === 'room') {
+                        socket.emit('sendMessage', { 
+                            roomId: state.roomId, 
+                            message: chatInput.value.trim() 
+                        });
+                    }
+                    
+                    // Add message to UI
+                    addChatMessage(chatInput.value.trim(), true);
+                    
+                    // Simulate opponent response in non-room modes
+                    if ((state.gameMode === 'online') && state.opponentConnected) {
+                        setTimeout(() => {
+                            const responses = [
+                                "Nice move!",
+                                "Good game!",
+                                "Let's play again",
+                                "You're good at this!",
+                                "I'll get you next time!"
+                            ];
+                            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                            addChatMessage(randomResponse, false);
+                        }, 2000);
+                    }
+                    
+                    chatInput.value = '';
+                }
+            });
+            
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessageBtn.click();
+                }
+            });
+            
+            // Initialize tutorial
+            tutorial.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
